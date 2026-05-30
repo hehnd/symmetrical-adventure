@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <direct.h>
+#include <windows.h>
 
 // 使用系统curl.exe获取URL内容
 static char* fetch_url(const char *url) {
@@ -93,15 +95,19 @@ static cJSON* fetch_user_status_json(const char *handle) {
 
 // ============ 主函数 ============
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "用法: %s <用户ID列表文件>\n", argv[0]);
-        fprintf(stderr, "示例: %s data/users.txt\n", argv[0]);
-        return 1;
+    // 设置控制台编码为UTF-8，解决中文乱码
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+    
+    // 默认用户ID列表文件
+    const char *user_file = "data/users.txt";
+    if (argc >= 2) {
+        user_file = argv[1];
     }
     
     // 读取用户ID列表
-    FILE *fp = fopen(argv[1], "r");
-    if (!fp) { fprintf(stderr, "无法打开文件: %s\n", argv[1]); return 1; }
+    FILE *fp = fopen(user_file, "r");
+    if (!fp) { fprintf(stderr, "无法打开文件: %s\n", user_file); return 1; }
     
     char handles[100][64];
     int handle_count = 0;
@@ -205,6 +211,13 @@ int main(int argc, char *argv[]) {
     }
     
     cJSON_Delete(output);
-    fprintf(stderr, "\n完成！请打开 output/cf_report.html 查看报告\n");
+    fprintf(stderr, "\n完成！正在打开HTML报告...\n");
+    // 自动打开HTML报告
+    char cmd[1024];
+    char cwd[512];
+    if (_getcwd(cwd, sizeof(cwd))) {
+        snprintf(cmd, sizeof(cmd), "explorer \"%s\\output\\cf_report.html\"", cwd);
+        system(cmd);
+    }
     return 0;
 }
