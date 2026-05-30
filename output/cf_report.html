@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codeforces 用户比赛总结</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+h1 { text-align: center; color: #1a1a2e; margin: 30px 0; font-size: 2.2em; }
+h1 small { font-size: 0.5em; color: #666; display: block; margin-top: 5px; }
+h2 { color: #1a1a2e; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+.user-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 25px; flex-wrap: wrap; }
+.user-card img { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #e0e0e0; }
+.user-info h3 { font-size: 1.5em; margin-bottom: 8px; }
+.user-info .rating { font-size: 1.8em; font-weight: bold; }
+.user-info .title-text { font-size: 1em; margin-top: 5px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+.stat-card { background: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.stat-card .label { font-size: 0.85em; color: #888; margin-bottom: 8px; }
+.stat-card .value { font-size: 1.6em; font-weight: bold; }
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin: 20px 0; }
+th { background: #1a1a2e; color: white; padding: 14px 12px; text-align: left; font-size: 0.9em; white-space: nowrap; }
+td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 0.9em; }
+tr:hover { background: #f8f9ff; }
+.rating-pos { color: #28a745; font-weight: bold; }
+.rating-neg { color: #dc3545; font-weight: bold; }
+.rating-zero { color: #888; }
+.solved { color: #28a745; font-weight: bold; }
+.unsolved { color: #dc3545; }
+.upsolved { color: #17a2b8; font-weight: bold; }
+.chart-container { background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.chart-box { width: 100%; height: 450px; }
+.user-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; margin: 20px 0; }
+.user-list-item { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; display: flex; align-items: center; gap: 15px; }
+.user-list-item:hover { transform: translateY(-3px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.user-list-item img { width: 50px; height: 50px; border-radius: 50%; }
+.user-list-item .info { flex: 1; }
+.user-list-item .handle { font-size: 1.1em; font-weight: bold; }
+.user-list-item .detail { font-size: 0.8em; color: #888; margin-top: 3px; }
+.nav-bar { background: #1a1a2e; padding: 12px 20px; position: sticky; top: 0; z-index: 100; display: flex; gap: 20px; align-items: center; }
+.nav-bar a { color: white; text-decoration: none; font-size: 0.95em; cursor: pointer; }
+.nav-bar a:hover { text-decoration: underline; }
+.nav-bar .title { color: #ffd700; font-weight: bold; font-size: 1.1em; margin-right: 20px; }
+.back-btn { display: inline-block; padding: 8px 20px; background: #1a1a2e; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; cursor: pointer; border: none; font-size: 0.9em; }
+.back-btn:hover { background: #16213e; }
+.section { display: none; }
+.section.active { display: block; }
+.filter-btns { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+.filter-btn { padding: 8px 18px; border: 2px solid #1a1a2e; background: white; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; }
+.filter-btn.active { background: #1a1a2e; color: white; }
+.filter-btn:hover { background: #1a1a2e; color: white; }
+.loading { text-align: center; padding: 100px; font-size: 1.2em; color: #888; }
+.loading .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #1a1a2e; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.error { text-align: center; padding: 50px; color: #dc3545; }
+@media (max-width: 768px) { .user-card { flex-direction: column; text-align: center; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="nav-bar">
+  <span class="title">CF Analyzer</span>
+  <a onclick="showSection('overview')">用户总览</a>
+  <a onclick="showSection('detail')">比赛详情</a>
+  <a onclick="showSection('stats')">题目统计</a>
+</div>
+
+<div class="container">
+  <h1>Codeforces 用户比赛总结 <small>Codeforces Contest Analysis</small></h1>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>正在加载数据...</p>
+  </div>
+
+  <div id="error" class="error" style="display:none;">
+    <h2>数据加载失败</h2>
+    <p id="errorMsg">请确保已运行 C 程序生成数据文件。</p>
+    <button class="back-btn" onclick="location.reload()">重试</button>
+  </div>
+
+  <!-- 用户总览 -->
+  <div id="section-overview" class="section">
+    <h2>用户总览</h2>
+    <div class="user-list" id="userList"></div>
+  </div>
+
+  <!-- 比赛详情 -->
+  <div id="section-detail" class="section">
+    <h2>比赛详情</h2>
+    <div id="userSelector" style="margin:15px 0;display:flex;gap:10px;flex-wrap:wrap;"></div>
+    <div id="contestDetail"></div>
+  </div>
+
+  <!-- 题目统计 -->
+  <div id="section-stats" class="section">
+    <h2>题目统计</h2>
+    <div id="userSelector2" style="margin:15px 0;display:flex;gap:10px;flex-wrap:wrap;"></div>
+    <div class="filter-btns" id="statsFilter">
+      <button class="filter-btn active" onclick="switchStatsFilter('all',this)">全部</button>
+      <button class="filter-btn" onclick="switchStatsFilter('1year',this)">最近一年</button>
+      <button class="filter-btn" onclick="switchStatsFilter('180days',this)">最近180天</button>
+      <button class="filter-btn" onclick="switchStatsFilter('30days',this)">最近1个月</button>
+    </div>
+    <div class="chart-container">
+      <div id="problemStatsChart" class="chart-box"></div>
+    </div>
+  </div>
+</div>
+
+<script src="cf_data.js"></script>
+<script>
+// ============ 颜色工具 ============
+function getRatingColor(rating) {
+  if (rating >= 2400) return '#FF0000';
+  if (rating >= 2300) return '#FF8C00';
+  if (rating >= 2100) return '#AA00AA';
+  if (rating >= 1900) return '#0000FF';
+  if (rating >= 1600) return '#03A89E';
+  if (rating >= 1400) return '#008000';
+  if (rating >= 1200) return '#808080';
+  return '#808080';
+}
+
+function getRatingTitle(rating) {
+  if (rating >= 3000) return 'International Grandmaster';
+  if (rating >= 2600) return 'Grandmaster';
+  if (rating >= 2400) return 'International Master';
+  if (rating >= 2300) return 'Master';
+  if (rating >= 2100) return 'Candidate Master';
+  if (rating >= 1900) return 'Expert';
+  if (rating >= 1600) return 'Specialist';
+  if (rating >= 1400) return 'Pupil';
+  if (rating >= 1200) return 'Newbie';
+  return 'Unrated';
+}
+
+// ============ 全局状态 ============
+var cfData = null;
+var currentStatsUser = null;
+var currentStatsFilter = 'all';
+
+// ============ 数据加载 ============
+function loadData() {
+  if (typeof CF_DATA !== 'undefined' && CF_DATA) {
+    cfData = CF_DATA;
+    document.getElementById('loading').style.display = 'none';
+    renderOverview();
+    renderUserSelectors();
+    showSection('overview');
+  } else {
+    // 如果CF_DATA未定义，尝试用XHR加载
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'cf_data.js', true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 0 || xhr.status === 200) {
+          try {
+            // cf_data.js 内容是 "var CF_DATA = {...};"
+            eval(xhr.responseText);
+            cfData = CF_DATA;
+            document.getElementById('loading').style.display = 'none';
+            renderOverview();
+            renderUserSelectors();
+            showSection('overview');
+          } catch(e) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMsg').textContent = '数据加载失败: ' + e.message + '。请先运行 C 程序生成数据文件。';
+          }
+        } else {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('errorMsg').textContent = '加载失败 (状态码: ' + xhr.status + ')。请先运行 C 程序生成数据文件。';
+        }
+      }
+    };
+    xhr.onerror = function() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('errorMsg').textContent = '加载失败。请确保已运行 C 程序生成 output/cf_data.js 文件。';
+    };
+    xhr.send();
+  }
+}
+
+// ============ 页面切换 ============
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('section-' + name).classList.add('active');
+  if (name === 'stats' && currentStatsUser) renderProblemStats(currentStatsUser);
+}
+
+// ============ 用户总览 ============
+function renderOverview() {
+  var list = document.getElementById('userList');
+  list.innerHTML = '';
+  cfData.users.forEach(function(u) {
+    var info = u.info || {};
+    var rating = info.rating || 0;
+    var color = getRatingColor(rating);
+    var title = info.rank || getRatingTitle(rating);
+    var avatar = info.titlePhoto || '';
+    var handle = info.handle || u.handle;
+    
+    var ratings = u.ratings || [];
+    var totalContests = ratings.length;
+    var recent180 = 0, maxRating180 = 0;
+    var now = Math.floor(Date.now() / 1000);
+    ratings.forEach(function(r) {
+      var t = r.ratingUpdateTimeSeconds || 0;
+      if (now - t <= 180 * 86400) { recent180++; if ((r.newRating || 0) > maxRating180) maxRating180 = r.newRating || 0; }
+    });
+    
+    var div = document.createElement('div');
+    div.className = 'user-list-item';
+    div.innerHTML = '<img src="' + avatar + '" alt="avatar" onerror="this.src=\'https://cdn.iconscout.com/icon/free/png-256/code-forces-3628695-3029920.png\'">' +
+      '<div class="info">' +
+      '<div class="handle" style="color:' + color + '">' + handle + '</div>' +
+      '<div class="detail">等级分: <span style="color:' + color + ';font-weight:bold;">' + rating + '</span> | 头衔: ' + title + ' | 比赛: ' + totalContests + '次</div>' +
+      '<div class="detail">最高等级分: ' + (info.maxRating || 0) + ' | 近180天: ' + recent180 + '次 | 近180天最高: ' + maxRating180 + '</div>' +
+      '</div>';
+    div.onclick = function() { showUserDetail(handle); };
+    list.appendChild(div);
+  });
+}
+
+// ============ 用户详情 ============
+function showUserDetail(handle) {
+  var u = cfData.users.find(function(x) { return (x.info && x.info.handle) === handle || x.handle === handle; });
+  if (!u) return;
+  
+  var info = u.info || {};
+  var rating = info.rating || 0;
+  var color = getRatingColor(rating);
+  var title = info.rank || getRatingTitle(rating);
+  var avatar = info.titlePhoto || '';
+  var ratings = u.ratings || [];
+  var totalContests = ratings.length;
+  var recent180 = 0, maxRating180 = 0;
+  var now = Math.floor(Date.now() / 1000);
+  ratings.forEach(function(r) {
+    var t = r.ratingUpdateTimeSeconds || 0;
+    if (now - t <= 180 * 86400) { recent180++; if ((r.newRating || 0) > maxRating180) maxRating180 = r.newRating || 0; }
+  });
+  
+  var html = '<div class="user-card">' +
+    '<img src="' + avatar + '" alt="avatar" onerror="this.src=\'https://cdn.iconscout.com/icon/free/png-256/code-forces-3628695-3029920.png\'">' +
+    '<div class="user-info">' +
+    '<h3 style="color:' + color + '">' + handle + '</h3>' +
+    '<div class="rating" style="color:' + color + '">' + rating + '</div>' +
+    '<div class="title-text" style="color:' + color + '">' + title + '</div>' +
+    '</div></div>';
+  
+  html += '<div class="stats-grid">' +
+    '<div class="stat-card"><div class="label">当前等级分</div><div class="value" style="color:' + color + '">' + rating + '</div></div>' +
+    '<div class="stat-card"><div class="label">最高等级分</div><div class="value" style="color:' + getRatingColor(info.maxRating || 0) + '">' + (info.maxRating || 0) + '</div></div>' +
+    '<div class="stat-card"><div class="label">比赛次数</div><div class="value">' + totalContests + '</div></div>' +
+    '<div class="stat-card"><div class="label">近180天比赛</div><div class="value">' + recent180 + '</div></div>' +
+    '<div class="stat-card"><div class="label">近180天最高</div><div class="value" style="color:' + getRatingColor(maxRating180) + '">' + maxRating180 + '</div></div>' +
+    '</div>';
+  
+  // 等级分变化图
+  html += '<div class="chart-container"><div id="ratingChart" class="chart-box"></div></div>';
+  
+  // 比赛列表
+  html += '<h3>比赛记录</h3>';
+  html += '<div style="overflow-x:auto;">';
+  html += '<table><thead><tr>' +
+    '<th>比赛名称</th><th>时间</th><th>赛前等级分</th><th>赛后等级分</th><th>变化</th><th>排名</th><th>补题情况</th>' +
+    '</tr></thead><tbody>';
+  
+  // 按时间从近到远
+  var sorted = ratings.slice().reverse();
+  sorted.forEach(function(r) {
+    var cid = r.contestId;
+    var cname = r.contestName || ('Contest #' + cid);
+    var ts = r.ratingUpdateTimeSeconds || 0;
+    var d = new Date(ts * 1000);
+    var timeStr = d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+    var oldR = r.oldRating || 0;
+    var newR = r.newRating || 0;
+    var change = newR - oldR;
+    var rank = r.rank || '-';
+    
+    // 补题分析：从submissions中找出该比赛赛后通过的题目
+    var upsolved = [];
+    if (u.submissions) {
+      // 获取比赛开始时间（从submissions中最早的该比赛提交）
+      var contestSubs = [];
+      u.submissions.forEach(function(sub) {
+        if (sub.contestId === cid) contestSubs.push(sub);
+      });
+      
+      // 找出比赛中通过的题目
+      var solvedInContest = {};
+      contestSubs.forEach(function(sub) {
+        if (sub.verdict === 'OK' && sub.problem && sub.problem.index) {
+          solvedInContest[sub.problem.index] = true;
+        }
+      });
+      
+      // 找出赛后通过的题目（补题）
+      // 按时间排序
+      contestSubs.sort(function(a, b) { return (a.creationTimeSeconds || 0) - (b.creationTimeSeconds || 0); });
+      
+      // 找到第一个OK提交的时间作为比赛结束参考
+      var firstOkTime = 0;
+      for (var i = 0; i < contestSubs.length; i++) {
+        if (contestSubs[i].verdict === 'OK') {
+          firstOkTime = contestSubs[i].creationTimeSeconds || 0;
+          break;
+        }
+      }
+      
+      // 比赛时长通常2小时，取所有提交中最后一个提交时间作为比赛结束
+      var lastSubTime = 0;
+      contestSubs.forEach(function(sub) {
+        var st = sub.creationTimeSeconds || 0;
+        if (st > lastSubTime) lastSubTime = st;
+      });
+      
+      // 如果比赛中有通过的题目，取第一个通过时间+2小时作为比赛结束
+      var contestEnd = firstOkTime > 0 ? firstOkTime + 7200 : (lastSubTime > 0 ? lastSubTime : 0);
+      
+      // 找出所有赛后通过的题目
+      var upsolvedSet = {};
+      contestSubs.forEach(function(sub) {
+        if (sub.verdict === 'OK' && sub.problem && sub.problem.index) {
+          var idx = sub.problem.index;
+          var st = sub.creationTimeSeconds || 0;
+          // 如果该题在比赛中没通过，且提交时间在比赛结束后
+          if (!solvedInContest[idx] && st > contestEnd) {
+            upsolvedSet[idx] = true;
+          }
+        }
+      });
+      upsolved = Object.keys(upsolvedSet);
+    }
+    
+    var changeClass = change > 0 ? 'rating-pos' : (change < 0 ? 'rating-neg' : 'rating-zero');
+    var changeSign = change > 0 ? '+' : '';
+    
+    var upsolvedHtml = upsolved.length > 0 
+      ? '补题: ' + upsolved.map(function(x) { return '<span class="upsolved">' + x + '</span>'; }).join(' ')
+      : '<span style="color:#888">无</span>';
+    
+    html += '<tr>' +
+      '<td>' + cname + '</td>' +
+      '<td>' + timeStr + '</td>' +
+      '<td style="color:' + getRatingColor(oldR) + '">' + oldR + '</td>' +
+      '<td style="color:' + getRatingColor(newR) + '">' + newR + '</td>' +
+      '<td class="' + changeClass + '">' + changeSign + change + '</td>' +
+      '<td>' + rank + '</td>' +
+      '<td style="font-size:0.85em">' + upsolvedHtml + '</td>' +
+      '</tr>';
+  });
+  
+  html += '</tbody></table></div>';
+  
+  document.getElementById('contestDetail').innerHTML = html;
+  
+  // 渲染等级分变化图
+  setTimeout(function() {
+    var chart = echarts.init(document.getElementById('ratingChart'));
+    var dates = ratings.map(function(r) {
+      var d = new Date((r.ratingUpdateTimeSeconds || 0) * 1000);
+      return d.toLocaleDateString('zh-CN');
+    });
+    var ratingData = ratings.map(function(r) { return r.newRating || 0; });
+    
+    var option = {
+      title: { text: handle + ' 等级分变化', left: 'center' },
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 10 } },
+      yAxis: { type: 'value', name: '等级分' },
+      series: [{
+        type: 'line',
+        data: ratingData,
+        smooth: true,
+        lineStyle: { width: 2 },
+        areaStyle: { opacity: 0.1 },
+        markLine: { data: [{ type: 'average', name: '平均值' }] }
+      }],
+      grid: { bottom: 80 }
+    };
+    chart.setOption(option);
+    window.addEventListener('resize', function() { chart.resize(); });
+  }, 100);
+  
+  showSection('detail');
+}
+
+// ============ 用户选择器 ============
+function renderUserSelectors() {
+  var sel1 = document.getElementById('userSelector');
+  var sel2 = document.getElementById('userSelector2');
+  sel1.innerHTML = '';
+  sel2.innerHTML = '';
+  
+  cfData.users.forEach(function(u) {
+    var handle = (u.info && u.info.handle) || u.handle;
+    var color = getRatingColor((u.info && u.info.rating) || 0);
+    
+    var btn1 = document.createElement('button');
+    btn1.className = 'filter-btn';
+    btn1.style.borderColor = color;
+    btn1.style.color = color;
+    btn1.textContent = handle;
+    btn1.onclick = function() { showUserDetail(handle); };
+    sel1.appendChild(btn1);
+    
+    var btn2 = document.createElement('button');
+    btn2.className = 'filter-btn';
+    btn2.style.borderColor = color;
+    btn2.style.color = color;
+    btn2.textContent = handle;
+    btn2.onclick = function() { currentStatsUser = handle; renderProblemStats(handle); };
+    sel2.appendChild(btn2);
+  });
+  
+  if (cfData.users.length > 0) {
+    currentStatsUser = (cfData.users[0].info && cfData.users[0].info.handle) || cfData.users[0].handle;
+  }
+}
+
+// ============ 题目统计 ============
+function switchStatsFilter(filter, btn) {
+  currentStatsFilter = filter;
+  document.querySelectorAll('#statsFilter .filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  if (currentStatsUser) renderProblemStats(currentStatsUser);
+}
+
+function renderProblemStats(handle) {
+  var u = cfData.users.find(function(x) { return (x.info && x.info.handle) === handle || x.handle === handle; });
+  if (!u || !u.submissions) return;
+  
+  var stats = {};
+  var now = Math.floor(Date.now() / 1000);
+  var oneYear = 365 * 86400;
+  var oneEighty = 180 * 86400;
+  var oneMonth = 30 * 86400;
+  
+  u.submissions.forEach(function(sub) {
+    if (sub.verdict !== 'OK' || !sub.problem) return;
+    var idx = sub.problem.index || '';
+    var rating = sub.problem.rating || 0;
+    var ts = sub.creationTimeSeconds || 0;
+    var key = idx + '_' + rating;
+    
+    if (!stats[key]) {
+      stats[key] = { index: idx, rating: rating, count: 0, count1y: 0, count180: 0, count30: 0 };
+    }
+    stats[key].count++;
+    if (now - ts <= oneYear) stats[key].count1y++;
+    if (now - ts <= oneEighty) stats[key].count180++;
+    if (now - ts <= oneMonth) stats[key].count30++;
+  });
+  
+  var statsArr = Object.values(stats);
+  statsArr.sort(function(a, b) { return a.rating - b.rating; });
+  
+  // 按等级分分组
+  var groups = {};
+  statsArr.forEach(function(s) {
+    var r = s.rating;
+    if (!groups[r]) groups[r] = { rating: r, count: 0, count1y: 0, count180: 0, count30: 0 };
+    groups[r].count += s.count;
+    groups[r].count1y += s.count1y;
+    groups[r].count180 += s.count180;
+    groups[r].count30 += s.count30;
+  });
+  
+  var groupArr = Object.values(groups);
+  groupArr.sort(function(a, b) { return a.rating - b.rating; });
+  
+  var ratings = groupArr.map(function(g) { return g.rating === 0 ? '未评级' : '' + g.rating; });
+  var counts;
+  if (currentStatsFilter === 'all') counts = groupArr.map(function(g) { return g.count; });
+  else if (currentStatsFilter === '1year') counts = groupArr.map(function(g) { return g.count1y; });
+  else if (currentStatsFilter === '180days') counts = groupArr.map(function(g) { return g.count180; });
+  else counts = groupArr.map(function(g) { return g.count30; });
+  
+  var chart = echarts.init(document.getElementById('problemStatsChart'));
+  var option = {
+    title: { text: handle + ' - 题目等级分分布 (' + (currentStatsFilter === 'all' ? '全部' : currentStatsFilter === '1year' ? '最近一年' : currentStatsFilter === '180days' ? '最近180天' : '最近1个月') + ')', left: 'center' },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    xAxis: { type: 'category', data: ratings, name: '题目等级分', axisLabel: { rotate: 45 } },
+    yAxis: { type: 'value', name: '通过数量' },
+    series: [{
+      type: 'bar',
+      data: counts.map(function(c, i) {
+        return { value: c, itemStyle: { color: getRatingColor(groupArr[i].rating) } };
+      }),
+      barWidth: '60%'
+    }],
+    grid: { bottom: 80 }
+  };
+  chart.setOption(option);
+  window.addEventListener('resize', function() { chart.resize(); });
+}
+
+// ============ 启动 ============
+window.onload = loadData;
+</script>
+</body>
+</html>

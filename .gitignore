@@ -1,0 +1,14 @@
+# 编译产物
+cf_analyzer.exe
+*.exe
+
+# 数据文件（自动生成，体积大）
+data/cf_data.json
+output/cf_data.js
+
+# 日志文件
+*.log
+*.txt
+
+# Git
+.git/
